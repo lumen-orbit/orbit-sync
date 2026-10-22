@@ -22,6 +22,10 @@ on:
         description: "Lookup"
         type: boolean
         default: false
+      verbose:
+        description: "Verbose"
+        type: boolean
+        default: false
 
 concurrency:
   group: sync
@@ -35,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
+      QUIET_LOGS: ${{ inputs.verbose && '0' || 'warn' }}
       DB_URL: ${{ secrets.DB_URL }}
       DB_KEY: ${{ secrets.DB_KEY }}
       LOGO_KEY: ${{ secrets.LOGO_KEY }}
@@ -75,8 +80,10 @@ jobs:
           IN_NOTIFY: "false"
       - name: seal
         id: seal
+        if: ${{ !cancelled() }}
         run: node dist/vault.mjs seal
       - name: save
+        if: ${{ !cancelled() }}
         run: |
           date -u +"Last sync: %Y-%m-%d %H:%M UTC" > STATUS.md
           git config user.name "orbit-sync"
