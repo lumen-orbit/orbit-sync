@@ -1,0 +1,95 @@
+name: manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode"
+        type: choice
+        default: "a+b"
+        options: ["a+b", "a", "b", "none"]
+      wide:
+        description: "Wide"
+        type: boolean
+        default: false
+      size:
+        description: "Size (0 = all)"
+        default: "0"
+      budget:
+        description: "Budget"
+        default: "3000"
+      lookup:
+        description: "Lookup"
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      DB_URL: ${{ secrets.DB_URL }}
+      DB_KEY: ${{ secrets.DB_KEY }}
+      LOGO_KEY: ${{ secrets.LOGO_KEY }}
+      DATA_KEY: ${{ secrets.DATA_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: open
+        run: node dist/vault.mjs open
+      - name: step a
+        if: ${{ startsWith(inputs.mode, 'a') }}
+        run: node dist/survey.mjs
+        env:
+          IN_MODE: a
+          IN_WIDE: ${{ inputs.wide && 'true' || 'false' }}
+      - name: step b
+        if: ${{ contains(inputs.mode, 'b') }}
+        run: node dist/survey.mjs
+        env:
+          IN_MODE: b
+          IN_SIZE: ${{ inputs.size || '0' }}
+      - name: step c
+        run: node dist/catalog.mjs
+      - name: step d
+        run: node dist/glyphs.mjs
+      - name: step f
+        run: node dist/nightly.mjs
+        env:
+          IN_BUDGET: ${{ inputs.budget || '3000' }}
+          IN_LOOKUP: ${{ inputs.lookup && '1' || '0' }}
+          IN_NOTIFY: "false"
+      - name: seal
+        id: seal
+        run: node dist/vault.mjs seal
+      - name: save
+        run: |
+          date -u +"Last sync: %Y-%m-%d %H:%M UTC" > STATUS.md
+          git config user.name "orbit-sync"
+          git config user.email "orbit-sync@users.noreply.github.com"
+          git add vault.bin STATUS.md
+          if ! git diff --cached --quiet; then
+            git commit -q -m "sync $(date -u +%Y-%m-%d)"
+            git pull -q --rebase && git push -q
+          fi
+      - name: notify
+        env:
+          GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+          TARGET: ${{ secrets.DISPATCH_TARGET }}
+        run: |
+          [ -n "$GH_TOKEN" ] && [ -n "$TARGET" ] || exit 0
+          gh workflow run deploy.yml -R "$TARGET" -f build_only=false > /dev/null

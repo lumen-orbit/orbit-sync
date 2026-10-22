@@ -1,0 +1,8 @@
+# Only vault.bin, STATUS.md and the published files belong in this repo.
+# Everything a run opens or downloads stays local to the runner.
+node_modules/
+public/
+data/
+scripts/
+companies.csv
+*.local
