@@ -44,6 +44,11 @@ jobs:
       MAIL_FROM: ${{ secrets.MAIL_FROM }}
       MAIL_REPLY: ${{ secrets.MAIL_REPLY }}
       DATA_KEY: ${{ secrets.DATA_KEY }}
+      STORE_URL: ${{ secrets.STORE_URL }}
+      STORE_ID: ${{ secrets.STORE_ID }}
+      STORE_SECRET: ${{ secrets.STORE_SECRET }}
+      STORE_PUBLIC: ${{ secrets.STORE_PUBLIC }}
+      STORE_PRIVATE: ${{ secrets.STORE_PRIVATE }}
       IN_TARGET: ${{ inputs.target }}
       IN_NOTIFY: ${{ github.event_name == 'schedule' && 'true' || (inputs.notify && 'true' || 'false') }}
       IN_BUDGET: ${{ inputs.budget || '2000' }}

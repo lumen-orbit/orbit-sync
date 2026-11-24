@@ -1,0 +1,68 @@
+name: test-nightly
+
+# The nightly run against the TEST database, by hand only. It reads the vault but never writes it back,
+# and has its own lock, so it can't block or overlap the real nightly.
+on:
+  workflow_dispatch:
+    inputs:
+      area:
+        description: "Area (comma-separated)"
+        default: "bengaluru"
+      budget:
+        description: "Budget"
+        default: "300"
+      notify:
+        description: "Notify"
+        type: boolean
+        default: false
+      verbose:
+        description: "Verbose"
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      QUIET_LOGS: ${{ inputs.verbose && '0' || 'warn' }}
+      DB_URL: ${{ secrets.TEST_DB_URL }}
+      DB_KEY: ${{ secrets.TEST_DB_KEY }}
+      MAIL_KEY: ${{ secrets.MAIL_KEY }}
+      MAIL_TO: ${{ secrets.MAIL_TO }}
+      MAIL_FROM: ${{ secrets.MAIL_FROM }}
+      MAIL_REPLY: ${{ secrets.MAIL_REPLY }}
+      DATA_KEY: ${{ secrets.DATA_KEY }}
+      STORE_URL: ${{ secrets.TEST_STORE_URL }}
+      STORE_ID: ${{ secrets.TEST_STORE_ID }}
+      STORE_SECRET: ${{ secrets.TEST_STORE_SECRET }}
+      STORE_PUBLIC: ${{ secrets.TEST_STORE_PUBLIC }}
+      STORE_PRIVATE: ${{ secrets.TEST_STORE_PRIVATE }}
+      ONLY_CITIES: ${{ inputs.area || 'bengaluru' }}
+      IN_NOTIFY: ${{ inputs.notify && 'true' || 'false' }}
+      IN_BUDGET: ${{ inputs.budget || '300' }}
+      IN_LOOKUP: "0"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: check
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$DB_KEY" ]; then echo "TEST_DB_URL / TEST_DB_KEY secrets are not set"; exit 1; fi
+      - name: open
+        run: node dist/vault.mjs open
+      - name: step
+        run: node dist/nightly.mjs
