@@ -23,6 +23,10 @@ on:
         description: "Verbose"
         type: boolean
         default: false
+      rebuild:
+        description: "Rebuild only"
+        type: boolean
+        default: false
 
 concurrency:
   group: sync
@@ -53,6 +57,7 @@ jobs:
       IN_NOTIFY: ${{ github.event_name == 'schedule' && 'true' || (inputs.notify && 'true' || 'false') }}
       IN_BUDGET: ${{ inputs.budget || '2000' }}
       IN_LOOKUP: ${{ inputs.lookup && '1' || '0' }}
+      IN_REBUILD: ${{ inputs.rebuild && '1' || '0' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
