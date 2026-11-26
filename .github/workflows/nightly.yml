@@ -1,8 +1,12 @@
 name: nightly
 
 on:
+  # Three parts an hour apart, each a fixed third of the boards (every board is still read once a day). Part 3 also
+  # publishes the snapshot and cleans up. "full" runs every board at once.
   schedule:
     - cron: "23 1 * * *"
+    - cron: "23 2 * * *"
+    - cron: "23 3 * * *"
   workflow_dispatch:
     inputs:
       target:
@@ -27,6 +31,11 @@ on:
         description: "Rebuild only"
         type: boolean
         default: false
+      part:
+        description: "Part"
+        type: choice
+        default: "all"
+        options: ["all", "1/3", "2/3", "3/3"]
 
 concurrency:
   group: sync
@@ -58,10 +67,14 @@ jobs:
       IN_BUDGET: ${{ inputs.budget || '2000' }}
       IN_LOOKUP: ${{ inputs.lookup && '1' || '0' }}
       IN_REBUILD: ${{ inputs.rebuild && '1' || '0' }}
+      IN_PART: ${{ github.event.schedule == '23 1 * * *' && '1/3' || github.event.schedule == '23 2 * * *' && '2/3' || github.event.schedule == '23 3 * * *' && '3/3' || inputs.part || 'all' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: true
+      - name: latest
+        # a run that waited behind another starts from the commit it was queued at: take the newest data files
+        run: git fetch -q --depth=1 origin "$GITHUB_REF_NAME" && git reset -q --hard FETCH_HEAD
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
@@ -88,6 +101,7 @@ jobs:
             git pull -q --rebase && git push -q
           fi
       - name: notify
+        if: ${{ env.IN_PART == 'all' || env.IN_PART == '3/3' }}
         env:
           GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
           TARGET: ${{ secrets.DISPATCH_TARGET }}
