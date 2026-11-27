@@ -1,12 +1,14 @@
 name: nightly
 
 on:
-  # Three parts an hour apart, each a fixed third of the boards (every board is still read once a day). Part 3 also
-  # publishes the snapshot and cleans up. "full" runs every board at once.
+  # Three parts 8 hours apart, each a fixed third of the boards (every board is still read once a day). GitHub starts
+  # this repo's schedules hours late (7-9 h seen in Nov 2026); 8 h apart keeps the parts from queueing behind each
+  # other (only one run can wait: a third would cancel it). Part 3 also publishes the snapshot and cleans up.
+  # "full" runs every board at once.
   schedule:
-    - cron: "23 1 * * *"
-    - cron: "23 2 * * *"
-    - cron: "23 3 * * *"
+    - cron: "23 0 * * *"
+    - cron: "23 8 * * *"
+    - cron: "23 16 * * *"
   workflow_dispatch:
     inputs:
       target:
@@ -67,7 +69,7 @@ jobs:
       IN_BUDGET: ${{ inputs.budget || '2000' }}
       IN_LOOKUP: ${{ inputs.lookup && '1' || '0' }}
       IN_REBUILD: ${{ inputs.rebuild && '1' || '0' }}
-      IN_PART: ${{ github.event.schedule == '23 1 * * *' && '1/3' || github.event.schedule == '23 2 * * *' && '2/3' || github.event.schedule == '23 3 * * *' && '3/3' || inputs.part || 'all' }}
+      IN_PART: ${{ github.event.schedule == '23 0 * * *' && '1/3' || github.event.schedule == '23 8 * * *' && '2/3' || github.event.schedule == '23 16 * * *' && '3/3' || inputs.part || 'all' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
